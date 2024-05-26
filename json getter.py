@@ -3,6 +3,12 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 from statsmodels.tsa.seasonal import seasonal_decompose
+import threading
+import concurrent.futures
+import matplotlib.ticker as ticker
+import numpy as np
+
+
 
 
 def plot_data_from_dict(data_dict):
@@ -20,11 +26,29 @@ def plot_data_from_dict(data_dict):
     elif(len(x_values[0]) == 8):
         x_values = [value[:4] + '-' + value[4:6]+ '-' + value[6:] if len(value) == 8 else value for value in x_values]
 
+    
+    x_numeric = []
+    y_numeric = []
+    for i in range(len(y_values)):
+        if isinstance(y_values[i], (int, float)):
+            x_numeric.append(x_values[i])
+            y_numeric.append(float(y_values[i]))
+            
+    
+
+
     # Creating the plot
-    plt.plot(x_values, y_values)
+    plt.plot(x_numeric, y_numeric)
     plt.xlabel('X Axis')
     plt.ylabel('Y Axis')
-    plt.title(name)
+    plt.title(name + " (" + data_dict['units'] +") " )
+    plt.locator_params(axis='x', nbins=6)
+    plt.gca().get_yaxis().set_major_formatter(
+    ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x))
+)
+    plt.locator_params(axis='y', nbins=6)
+
+    
 
     # Setting x-axis ticks
     num_ticks = min(6, len(x_values))  # Limiting to 6 ticks or less
@@ -34,6 +58,7 @@ def plot_data_from_dict(data_dict):
     # Saving the plot as a PDF
     plt.savefig(f"{name}.pdf")
     #plt.show()
+    plt.close('all')
 
 
 def parse_dates(date_strings):
@@ -61,7 +86,7 @@ def parse_dates(date_strings):
         print(f"Error parsing dates: {e}")
         return None, None
 
-def seasonal_decompose_and_plot(data, pd_in, plot_name):
+def seasonal_decompose_and_plot(data, pd_in, plot_name,unitsshort):
     """
     Perform seasonal decomposition on a time series represented by a list of lists,
     and plot the original time series along with its decomposed components.
@@ -82,13 +107,15 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name):
         period_num = 365
     
     # Extract dates and values from data
-    dates = [item[0] for item in data]
+    dates = [item[0] for item in reversed(data)]
     if(len(dates[0]) == 6):
         dates = [value[:4] + '-' + value[4:] if len(value) == 6 else value for value in dates]
     elif(len(dates[0]) == 8):
         dates = [value[:4] + '-' + value[4:6]+ '-' + value[6:] if len(value) == 8 else value for value in dates]
 
-    values = [item[1] for item in data]
+    values = [item[1] for item in reversed(data)]
+    values = np.array([float(val) if val.replace('.', '', 1).isdigit() else np.nan for val in values])
+
     
     # Parse dates
     dates_index, integers = parse_dates(dates)
@@ -105,7 +132,7 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name):
     # Plot the original time series and its components
     plt.figure(figsize=(12, 10))
     # Plot title
-    plt.suptitle(plot_name, fontsize=16)
+    plt.suptitle(plot_name + " (" + unitsshort +") " , fontsize=16)
     
     # Plot original time series
     plt.subplot(311)
@@ -114,8 +141,12 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name):
     plt.title('Original')
     plt.xlabel('Date')
     plt.ylabel('Value')
+    plt.xticks(fontsize=5)
     plt.locator_params(axis='x', nbins=6)
-    
+    plt.locator_params(axis='y', nbins=6)
+    plt.gca().get_yaxis().set_major_formatter(
+    ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x))
+)
     
     # Plot seasonal component
     plt.subplot(312)
@@ -124,7 +155,12 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name):
     plt.title('Seasonal')
     plt.xlabel('Date')
     plt.ylabel('Value')
+    plt.xticks(fontsize=5)
     plt.locator_params(axis='x', nbins=6)
+    plt.locator_params(axis='y', nbins=6)
+    plt.gca().get_yaxis().set_major_formatter(
+    ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x))
+)
     
     # Plot sum of trend and residual components
     plt.subplot(313)
@@ -133,12 +169,18 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name):
     plt.title('Trend + Residual')
     plt.xlabel('Date')
     plt.ylabel('Value')
+    plt.xticks(fontsize=5)
     plt.locator_params(axis='x', nbins=6)
+    plt.locator_params(axis='y', nbins=6)
+    plt.gca().get_yaxis().set_major_formatter(
+    ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x))
+)
     
     # Save plot as PDF
     plt.savefig(plot_name + ".pdf")
     
     #plt.show()
+    plt.close('all')
 
 
 def decode_json_lines(filename):
@@ -153,22 +195,11 @@ def decode_json_lines(filename):
             except json.JSONDecodeError:
                 pass  # Incomplete JSON, continue reading the file
 
-# Example usage:
-os.chdir(r'C:\Users\jbcme\Downloads\NG')
-filename = 'NG.txt'
 
-
-
-counter = 0
-
-examples = {}
-
-for json_obj in decode_json_lines(filename):
-    #examples[json_obj['name']] = json_obj['data'][0][0]
-    os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
+def manager_func(json_obj):
     try_other = False
     try:
-        seasonal_decompose_and_plot(json_obj['data'],json_obj['f'],json_obj['name'])
+        seasonal_decompose_and_plot(json_obj['data'],json_obj['f'],json_obj['name'],json_obj['units'])
     except:
         try_other = True
     
@@ -177,5 +208,40 @@ for json_obj in decode_json_lines(filename):
             plot_data_from_dict(json_obj)
         except:
             print("Didn't work this time.")
-    print(counter)  # Do whatever you need with the decoded JSON object
-    counter = counter + 1
+            
+            
+# Example usage:
+os.chdir(r'C:\Users\jbcme\Downloads\TOTAL')
+filename = 'TOTAL.txt'
+
+
+json_list = []
+
+for json_obj in decode_json_lines(filename):
+    json_list.append(json_obj)
+
+
+    
+os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
+
+# Define your list of 450 things
+
+
+# Define the number of threads you want to use
+
+for i in json_list:
+    
+    if(i['name'] == 'Biofuels Consumption, Monthly'):
+        manager_func(i)
+
+# num_threads =1
+
+
+
+# # Create a ThreadPoolExecutor with the desired number of threads
+# with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+#     # Submit the tasks to the executor and obtain futures
+#     futures = [executor.submit(manager_func, item) for item in json_list]
+
+#     # Retrieve the results from the futures as they become available
+#     results = [future.result() for future in concurrent.futures.as_completed(futures)]
