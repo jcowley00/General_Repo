@@ -1,6 +1,9 @@
 import json
 import os
 import matplotlib.pyplot as plt
+import pandas as pd
+from statsmodels.tsa.seasonal import seasonal_decompose
+
 
 def plot_data_from_dict(data_dict):
     # Extracting relevant data
@@ -12,7 +15,10 @@ def plot_data_from_dict(data_dict):
     y_values = [point[1] for point in reversed(data)]
 
     # Adding hyphen to x-values formatted as "yyyymm"
-    x_values = [value[:4] + '-' + value[4:] if len(value) == 6 else value for value in x_values]
+    if(len(x_values[0]) == 6):
+        x_values = [value[:4] + '-' + value[4:] if len(value) == 6 else value for value in x_values]
+    elif(len(x_values[0]) == 8):
+        x_values = [value[:4] + '-' + value[4:6]+ '-' + value[6:] if len(value) == 8 else value for value in x_values]
 
     # Creating the plot
     plt.plot(x_values, y_values)
@@ -27,8 +33,112 @@ def plot_data_from_dict(data_dict):
 
     # Saving the plot as a PDF
     plt.savefig(f"{name}.pdf")
-    plt.show()
+    #plt.show()
 
+
+def parse_dates(date_strings):
+    """
+    Parse date strings to convert them to pandas datetime objects.
+    Maps "the first", "the second", etc. to consecutive days starting from January 1, 1970.
+    
+    Parameters:
+        date_strings (list): List of date strings.
+    
+    Returns:
+        pd.DatetimeIndex: Pandas datetime index.
+    """
+    
+    try:
+        # Custom mapping between strings and Unix timestamps
+        unix_timestamps = [i for i in range(len(date_strings))]
+        
+        # Convert integers to corresponding Unix timestamps (number of days since January 1, 1970)
+        unix_timestamps = [(pd.to_datetime('1970-01-01') + pd.Timedelta(days=i)).timestamp() for i in unix_timestamps]
+        
+        # Convert Unix timestamps to pandas datetime objects
+        return pd.to_datetime(unix_timestamps, unit='s'), unix_timestamps
+    except Exception as e:
+        print(f"Error parsing dates: {e}")
+        return None, None
+
+def seasonal_decompose_and_plot(data, pd_in, plot_name):
+    """
+    Perform seasonal decomposition on a time series represented by a list of lists,
+    and plot the original time series along with its decomposed components.
+    
+    Parameters:
+        data (list): List of lists where each inner list contains [date_string, value].
+        period (int): The periodicity of the seasonal component.
+        plot_name (str): Name of the plot and the output PDF file.
+    """
+    period_num = 0
+    if(pd_in == 'A'):
+        period_num = 1
+    elif(pd_in == 'M'):
+        period_num = 12
+    elif(pd_in == 'W'):
+        period_num = 52
+    else:
+        period_num = 365
+    
+    # Extract dates and values from data
+    dates = [item[0] for item in data]
+    if(len(dates[0]) == 6):
+        dates = [value[:4] + '-' + value[4:] if len(value) == 6 else value for value in dates]
+    elif(len(dates[0]) == 8):
+        dates = [value[:4] + '-' + value[4:6]+ '-' + value[6:] if len(value) == 8 else value for value in dates]
+
+    values = [item[1] for item in data]
+    
+    # Parse dates
+    dates_index, integers = parse_dates(dates)
+    
+    if dates_index is None:
+        return  # Exit if date parsing fails
+    
+    # Create a pandas Series with the time index and values
+    ts = pd.Series(values, index=dates_index)
+    
+    # Perform seasonal decomposition
+    result = seasonal_decompose(ts, model='additive', period=period_num)
+    
+    # Plot the original time series and its components
+    plt.figure(figsize=(12, 10))
+    # Plot title
+    plt.suptitle(plot_name, fontsize=16)
+    
+    # Plot original time series
+    plt.subplot(311)
+    plt.plot(ts)
+    plt.xticks(dates_index, dates, rotation=45)
+    plt.title('Original')
+    plt.xlabel('Date')
+    plt.ylabel('Value')
+    plt.locator_params(axis='x', nbins=6)
+    
+    
+    # Plot seasonal component
+    plt.subplot(312)
+    plt.plot(result.seasonal)
+    plt.xticks(dates_index, dates, rotation=45)
+    plt.title('Seasonal')
+    plt.xlabel('Date')
+    plt.ylabel('Value')
+    plt.locator_params(axis='x', nbins=6)
+    
+    # Plot sum of trend and residual components
+    plt.subplot(313)
+    plt.plot(result.trend + result.resid)
+    plt.xticks(dates_index, dates, rotation=45)
+    plt.title('Trend + Residual')
+    plt.xlabel('Date')
+    plt.ylabel('Value')
+    plt.locator_params(axis='x', nbins=6)
+    
+    # Save plot as PDF
+    plt.savefig(plot_name + ".pdf")
+    
+    #plt.show()
 
 
 def decode_json_lines(filename):
@@ -49,11 +159,23 @@ filename = 'NG.txt'
 
 
 
-json_dict = {}
 counter = 0
 
+examples = {}
+
 for json_obj in decode_json_lines(filename):
-    json_dict[json_obj['name']] = json_obj
-    plot_data_from_dict(json_obj)
+    #examples[json_obj['name']] = json_obj['data'][0][0]
+    os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
+    try_other = False
+    try:
+        seasonal_decompose_and_plot(json_obj['data'],json_obj['f'],json_obj['name'])
+    except:
+        try_other = True
+    
+    if(try_other):
+        try:
+            plot_data_from_dict(json_obj)
+        except:
+            print("Didn't work this time.")
     print(counter)  # Do whatever you need with the decoded JSON object
     counter = counter + 1
