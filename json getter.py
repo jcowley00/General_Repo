@@ -7,6 +7,7 @@ import threading
 import concurrent.futures
 import matplotlib.ticker as ticker
 import numpy as np
+from textwrap import wrap
 
 
 
@@ -31,29 +32,33 @@ def plot_data_from_dict(data_dict):
     y_numeric = []
     for i in range(len(y_values)):
         if isinstance(y_values[i], (int, float)):
-            x_numeric.append(x_values[i])
             y_numeric.append(float(y_values[i]))
+            x_numeric.append(x_values[i])
+        else:
+            y_numeric.append(np.nan)
+            x_numeric.append(x_values[i])
             
+                
     
 
+   # plt.suptitle("\n".join(wrap(plot_name + " (" + unitsshort +") " , 60)))
 
     # Creating the plot
     plt.plot(x_numeric, y_numeric)
     plt.xlabel('X Axis')
     plt.ylabel('Y Axis')
-    plt.title(name + " (" + data_dict['units'] +") " )
+    plt.title("\n".join(wrap(name + " (" + data_dict['units'] +") "  , 60)))
     plt.locator_params(axis='x', nbins=6)
+    plt.locator_params(axis='y', nbins=6)
     plt.gca().get_yaxis().set_major_formatter(
     ticker.FuncFormatter(lambda x, pos: '{:,.0f}'.format(x))
 )
-    plt.locator_params(axis='y', nbins=6)
-
     
 
     # Setting x-axis ticks
-    num_ticks = min(6, len(x_values))  # Limiting to 6 ticks or less
-    step = len(x_values) // num_ticks
-    plt.xticks(range(0, len(x_values), step), x_values[::step])
+    num_ticks = min(6, len(x_numeric))  # Limiting to 6 ticks or less
+    step = len(x_numeric) // num_ticks
+    plt.xticks(range(0, len(x_numeric), step), x_numeric[::step])
 
     # Saving the plot as a PDF
     plt.savefig(f"{name}.pdf")
@@ -114,7 +119,6 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name,unitsshort):
         dates = [value[:4] + '-' + value[4:6]+ '-' + value[6:] if len(value) == 8 else value for value in dates]
 
     values = [item[1] for item in reversed(data)]
-    values = np.array([float(val) if val.replace('.', '', 1).isdigit() else np.nan for val in values])
 
     
     # Parse dates
@@ -132,8 +136,9 @@ def seasonal_decompose_and_plot(data, pd_in, plot_name,unitsshort):
     # Plot the original time series and its components
     plt.figure(figsize=(12, 10))
     # Plot title
-    plt.suptitle(plot_name + " (" + unitsshort +") " , fontsize=16)
     
+    #plt.suptitle(plot_name + " (" + unitsshort +") " , fontsize=16)
+    plt.suptitle("\n".join(wrap(plot_name + " (" + unitsshort +") " , 60)))
     # Plot original time series
     plt.subplot(311)
     plt.plot(ts)
@@ -211,8 +216,8 @@ def manager_func(json_obj):
             
             
 # Example usage:
-os.chdir(r'C:\Users\jbcme\Downloads\TOTAL')
-filename = 'TOTAL.txt'
+os.chdir(r'C:\Users\jbcme\Downloads\NG')
+filename = 'NG.txt'
 
 
 json_list = []
@@ -229,19 +234,13 @@ os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
 
 # Define the number of threads you want to use
 
-for i in json_list:
-    
-    if(i['name'] == 'Biofuels Consumption, Monthly'):
+start_idx = int(input("Start num:"))
+end_idx = int(input("End num:"))
+
+
+counter = 0
+for i in json_list:    
+    if(counter >= start_idx and counter <= end_idx):        
         manager_func(i)
-
-# num_threads =1
-
-
-
-# # Create a ThreadPoolExecutor with the desired number of threads
-# with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
-#     # Submit the tasks to the executor and obtain futures
-#     futures = [executor.submit(manager_func, item) for item in json_list]
-
-#     # Retrieve the results from the futures as they become available
-#     results = [future.result() for future in concurrent.futures.as_completed(futures)]
+        print(counter)
+    counter = counter + 1
