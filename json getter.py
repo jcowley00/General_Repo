@@ -8,6 +8,8 @@ import concurrent.futures
 import matplotlib.ticker as ticker
 import numpy as np
 from textwrap import wrap
+import argparse
+import gc
 
 
 
@@ -58,7 +60,7 @@ def plot_data_from_dict(data_dict):
     # Setting x-axis ticks
     num_ticks = min(6, len(x_numeric))  # Limiting to 6 ticks or less
     step = len(x_numeric) // num_ticks
-    plt.xticks(range(0, len(x_numeric), step), x_numeric[::step])
+    plt.xticks(range(0, len(x_numeric), step), x_numeric[::step],rotation='vertical')
 
     # Saving the plot as a PDF
     plt.savefig(f"{name}.pdf")
@@ -203,6 +205,8 @@ def decode_json_lines(filename):
 
 def manager_func(json_obj):
     try_other = False
+    
+
     try:
         seasonal_decompose_and_plot(json_obj['data'],json_obj['f'],json_obj['name'],json_obj['units'])
     except:
@@ -212,35 +216,39 @@ def manager_func(json_obj):
         try:
             plot_data_from_dict(json_obj)
         except:
-            print("Didn't work this time.")
+            print(json_obj['name'])
             
+    gc.collect()
             
-# Example usage:
-os.chdir(r'C:\Users\jbcme\Downloads\NG')
-filename = 'NG.txt'
-
-
-json_list = []
-
-for json_obj in decode_json_lines(filename):
-    json_list.append(json_obj)
-
-
+def main(start_idx,end_idx):            
+    # Example usage:
+    os.chdir(r'C:\Users\jbcme\Downloads\PET')
+    filename = 'PET.txt'
     
-os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
+    
+    json_list = []
+    
+    for json_obj in decode_json_lines(filename):
+        json_list.append(json_obj)
+    
+        
+    os.chdir(r'C:\Users\jbcme\Downloads\EBA\pdfs')
+    
+    # Define your list of 450 things
+    
+    
+    # Define the number of threads you want to use    
+    json_list = json_list[start_idx:end_idx]    
+    counter = 0
+    for i in json_list:
+        if(i['name'] == 'Gulf Coast (PADD 3) Blender Net Input of Biodiesel/Renewable Diesel Fuel, Monthly'):
+            manager_func(i)
+        
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description='Process some numbers.')
+#     parser.add_argument('argument1', type=str, help='First argument to the script')
+#     parser.add_argument('argument2', type=str, help='Second argument to the script')
+#     args = parser.parse_args()
+#     main(int(args.argument1), int(args.argument2))
 
-# Define your list of 450 things
-
-
-# Define the number of threads you want to use
-
-start_idx = int(input("Start num:"))
-end_idx = int(input("End num:"))
-
-
-counter = 0
-for i in json_list:    
-    if(counter >= start_idx and counter <= end_idx):        
-        manager_func(i)
-        print(counter)
-    counter = counter + 1
+main(8000,12000)
