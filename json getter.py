@@ -244,11 +244,10 @@ def main(start_idx,end_idx):
         if(i['name'] == 'Gulf Coast (PADD 3) Blender Net Input of Biodiesel/Renewable Diesel Fuel, Monthly'):
             manager_func(i)
         
-# if __name__ == "__main__":
-#     parser = argparse.ArgumentParser(description='Process some numbers.')
-#     parser.add_argument('argument1', type=str, help='First argument to the script')
-#     parser.add_argument('argument2', type=str, help='Second argument to the script')
-#     args = parser.parse_args()
-#     main(int(args.argument1), int(args.argument2))
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process some numbers.')
+    parser.add_argument('argument1', type=str, help='First argument to the script')
+    parser.add_argument('argument2', type=str, help='Second argument to the script')
+    args = parser.parse_args()
+    main(int(args.argument1), int(args.argument2))
 
-main(8000,12000)
